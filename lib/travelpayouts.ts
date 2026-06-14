@@ -31,6 +31,10 @@ function getPrice(item: TravelpayoutsPrice) {
   return item.value ?? item.price ?? null;
 }
 
+function getPaidPassengerCount(profile: SearchProfile) {
+  return Math.max(1, profile.adults + profile.children);
+}
+
 function toDateOnly(value: string | null | undefined) {
   if (!value) {
     return null;
@@ -66,7 +70,9 @@ function getSearchUrl(profile: SearchProfile) {
     origin_iata: profile.origin,
     destination_iata: profile.destination,
     depart_date: profile.depart_date,
-    adults: String(profile.adults)
+    adults: String(profile.adults),
+    children: String(profile.children),
+    infants: String(profile.infants)
   });
 
   if (profile.return_date) {
@@ -139,16 +145,17 @@ function normalizePayload(profile: SearchProfile, payload: TravelpayoutsResponse
 
   const rows = flattenPrices(payload.data);
   const bookingUrl = getSearchUrl(profile);
+  const passengerCount = getPaidPassengerCount(profile);
 
   return rows
     .map((item): NormalizedOffer | null => {
-      const totalPrice = getPrice(item);
+      const basePrice = getPrice(item);
       const departDate =
         toDateOnly(item.depart_date || item.departure_at) || profile.depart_date;
       const returnDate =
         toDateOnly(item.return_date || item.return_at) || profile.return_date;
 
-      if (!totalPrice) {
+      if (!basePrice) {
         return null;
       }
 
@@ -167,7 +174,14 @@ function normalizePayload(profile: SearchProfile, payload: TravelpayoutsResponse
         flightNumber: item.flight_number || null,
         transfers: item.transfers ?? null,
         durationMinutes: item.duration ?? null,
-        totalPrice,
+        totalPrice: basePrice * passengerCount,
+        outboundPrice: profile.return_date ? null : basePrice * passengerCount,
+        returnPrice: null,
+        passengerCount,
+        priceNote:
+          passengerCount > 1
+            ? `Travelpayouts Data API returned a base fare; stored price is multiplied by ${passengerCount} paid passengers.`
+            : null,
         currency: profile.currency,
         bookingUrl,
         rawPayload: item as Record<string, unknown>
@@ -205,7 +219,7 @@ function filterExactProfileDate(profile: SearchProfile, offers: NormalizedOffer[
   });
 }
 
-export async function searchTravelpayouts(profile: SearchProfile) {
+async function findCachedOffers(profile: SearchProfile) {
   const departureMonth = profile.depart_date.slice(0, 7);
   const cheapPayload = await fetchTravelpayoutsPricesForDate(
     profile,
@@ -239,4 +253,99 @@ export async function searchTravelpayouts(profile: SearchProfile) {
   );
 
   return uniqueOffers(filterExactProfileDate(profile, normalizePayload(profile, calendarPayload)));
+}
+
+function getOneWayProfile(
+  profile: SearchProfile,
+  direction: "outbound" | "return"
+): SearchProfile {
+  if (direction === "outbound") {
+    return {
+      ...profile,
+      return_date: null
+    };
+  }
+
+  return {
+    ...profile,
+    origin: profile.destination,
+    destination: profile.origin,
+    depart_date: profile.return_date || profile.depart_date,
+    return_date: null
+  };
+}
+
+function combineRoundTrip(profile: SearchProfile, outbound: NormalizedOffer, inbound: NormalizedOffer) {
+  const outboundPrice = outbound.totalPrice;
+  const returnPrice = inbound.totalPrice;
+
+  return {
+    ...outbound,
+    providerOfferId: [
+      "travelpayouts-roundtrip",
+      outbound.providerOfferId,
+      inbound.providerOfferId
+    ].join(":"),
+    origin: profile.origin,
+    destination: profile.destination,
+    departDate: profile.depart_date,
+    returnDate: profile.return_date,
+    airline:
+      outbound.airline && inbound.airline && outbound.airline !== inbound.airline
+        ? `${outbound.airline}/${inbound.airline}`
+        : outbound.airline || inbound.airline,
+    flightNumber:
+      outbound.flightNumber && inbound.flightNumber
+        ? `${outbound.flightNumber}/${inbound.flightNumber}`
+        : outbound.flightNumber || inbound.flightNumber,
+    transfers:
+      outbound.transfers === null && inbound.transfers === null
+        ? null
+        : (outbound.transfers || 0) + (inbound.transfers || 0),
+    durationMinutes:
+      outbound.durationMinutes === null && inbound.durationMinutes === null
+        ? null
+        : (outbound.durationMinutes || 0) + (inbound.durationMinutes || 0),
+    totalPrice: outboundPrice + returnPrice,
+    outboundPrice,
+    returnPrice,
+    passengerCount: getPaidPassengerCount(profile),
+    priceNote:
+      "Round-trip breakdown is composed from cached one-way Travelpayouts fares. It may differ from a live round-trip fare.",
+    bookingUrl: getSearchUrl(profile),
+    rawPayload: {
+      outbound: outbound.rawPayload,
+      return: inbound.rawPayload
+    }
+  } satisfies NormalizedOffer;
+}
+
+export async function searchTravelpayouts(profile: SearchProfile) {
+  if (!profile.return_date) {
+    return findCachedOffers(profile);
+  }
+
+  const outboundOffers = await findCachedOffers(getOneWayProfile(profile, "outbound"));
+  const returnOffers = await findCachedOffers(getOneWayProfile(profile, "return"));
+
+  if (outboundOffers.length > 0 && returnOffers.length > 0) {
+    return [
+      combineRoundTrip(
+        profile,
+        outboundOffers[0],
+        returnOffers[0]
+      )
+    ];
+  }
+
+  const fallbackRoundTripOffers = await findCachedOffers(profile);
+
+  return fallbackRoundTripOffers.map((offer) => ({
+    ...offer,
+    outboundPrice: null,
+    returnPrice: null,
+    passengerCount: getPaidPassengerCount(profile),
+    priceNote:
+      "Travelpayouts returned a cached round-trip fare without leg-by-leg price breakdown."
+  }));
 }

@@ -23,30 +23,48 @@ function formatPrice(value: number, currency: string) {
   }).format(value);
 }
 
-async function loadDashboardData() {
+function formatOptionalPrice(value: number | null, currency: string) {
+  return value === null ? "нет данных" : formatPrice(value, currency);
+}
+
+async function loadDashboardData(requestedProfileId: string | null) {
   noStore();
 
   const supabase = createSupabaseAdmin();
-  const [profiles, offers, runs] = await Promise.all([
-    supabase
-      .from("search_profiles")
-      .select("*")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("offer_snapshots")
-      .select("*")
-      .order("observed_at", { ascending: false })
-      .limit(20),
-    supabase
-      .from("search_runs")
-      .select("*")
-      .order("started_at", { ascending: false })
-      .limit(20)
-  ]);
+  const profiles = await supabase
+    .from("search_profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (profiles.error) {
     throw new Error(profiles.error.message);
   }
+
+  const profileRows = (profiles.data || []) as SearchProfile[];
+  const selectedProfile =
+    profileRows.find((profile) => profile.id === requestedProfileId) ||
+    profileRows.find((profile) => profile.active) ||
+    profileRows[0] ||
+    null;
+
+  let offersQuery = supabase
+    .from("offer_snapshots")
+    .select("*")
+    .order("observed_at", { ascending: false })
+    .limit(20);
+
+  let runsQuery = supabase
+    .from("search_runs")
+    .select("*")
+    .order("started_at", { ascending: false })
+    .limit(20);
+
+  if (selectedProfile) {
+    offersQuery = offersQuery.eq("search_profile_id", selectedProfile.id);
+    runsQuery = runsQuery.eq("search_profile_id", selectedProfile.id);
+  }
+
+  const [offers, runs] = await Promise.all([offersQuery, runsQuery]);
 
   if (offers.error) {
     throw new Error(offers.error.message);
@@ -57,9 +75,10 @@ async function loadDashboardData() {
   }
 
   return {
-    profiles: (profiles.data || []) as SearchProfile[],
+    profiles: profileRows,
     offers: (offers.data || []) as OfferSnapshot[],
-    runs: (runs.data || []) as SearchRun[]
+    runs: (runs.data || []) as SearchRun[],
+    selectedProfile
   };
 }
 
@@ -104,13 +123,15 @@ export default async function Home({
   let profiles: SearchProfile[] = [];
   let offers: OfferSnapshot[] = [];
   let runs: SearchRun[] = [];
+  let selectedProfile: SearchProfile | null = null;
   let loadError: string | null = null;
 
   try {
-    const data = await loadDashboardData();
+    const data = await loadDashboardData(getParam(searchParams, "profile") || null);
     profiles = data.profiles;
     offers = data.offers;
     runs = data.runs;
+    selectedProfile = data.selectedProfile;
   } catch (error) {
     loadError = error instanceof Error ? error.message : String(error);
   }
@@ -166,6 +187,9 @@ export default async function Home({
           <div className="articleHeader">
             <h2>Поисковые профили</h2>
             <form action="/api/run-search" method="post">
+              {selectedProfile ? (
+                <input name="selected_profile_id" type="hidden" value={selectedProfile.id} />
+              ) : null}
               <button type="submit">Проверить активные</button>
             </form>
           </div>
@@ -174,11 +198,18 @@ export default async function Home({
               <p className="empty">Пока нет сохранённых поисков.</p>
             ) : (
               profiles.map((profile) => (
-                <div className="listRow" key={profile.id}>
+                <div
+                  className={
+                    selectedProfile?.id === profile.id
+                      ? "listRow selectedRow"
+                      : "listRow"
+                  }
+                  key={profile.id}
+                >
                   <div>
-                    <strong>
+                    <a className="profileLink" href={`/?profile=${profile.id}#offers`}>
                       {`${profile.origin} -> ${profile.destination}`}
-                    </strong>
+                    </a>
                     <span>
                       {profile.depart_date}
                       {profile.return_date ? ` - ${profile.return_date}` : ""}
@@ -201,7 +232,14 @@ export default async function Home({
 
         <article id="offers">
           <div className="articleHeader">
-            <h2>Последние цены</h2>
+            <div>
+              <h2>Последние цены</h2>
+              {selectedProfile ? (
+                <p className="subhead">
+                  {`${selectedProfile.origin} -> ${selectedProfile.destination}`}
+                </p>
+              ) : null}
+            </div>
             <span className="countBadge">{offers.length}</span>
           </div>
           <div className="list">
@@ -215,9 +253,24 @@ export default async function Home({
                       {`${offer.origin} -> ${offer.destination}`}
                     </strong>
                     <span>
-                      {formatPrice(offer.total_price, offer.currency)} ·{" "}
+                      Итого: {formatPrice(offer.total_price, offer.currency)} ·{" "}
                       {formatDate(offer.observed_at)}
                     </span>
+                    <span>
+                      Туда: {formatOptionalPrice(offer.outbound_price, offer.currency)}
+                      {offer.return_date
+                        ? ` · Обратно: ${formatOptionalPrice(
+                            offer.return_price,
+                            offer.currency
+                          )}`
+                        : ""}
+                    </span>
+                    <span>
+                      Пассажиров в цене: {offer.passenger_count}
+                    </span>
+                    {offer.price_note ? (
+                      <span className="mutedNote">{offer.price_note}</span>
+                    ) : null}
                   </div>
                   <span className="ok">{offer.provider}</span>
                 </a>

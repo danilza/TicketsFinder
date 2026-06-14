@@ -89,6 +89,10 @@ async function saveOffer(profile: SearchProfile, runId: string, offer: Normalize
       transfers: offer.transfers,
       duration_minutes: offer.durationMinutes,
       total_price: offer.totalPrice,
+      outbound_price: offer.outboundPrice,
+      return_price: offer.returnPrice,
+      passenger_count: offer.passengerCount,
+      price_note: offer.priceNote,
       currency: offer.currency,
       booking_url: offer.bookingUrl,
       raw_payload: offer.rawPayload
@@ -116,6 +120,9 @@ async function createBookingAttempt(
     provider: offer.provider,
     provider_offer_id: offer.providerOfferId,
     price_at_attempt: offer.totalPrice,
+    outbound_price: offer.outboundPrice,
+    return_price: offer.returnPrice,
+    passenger_count: offer.passengerCount,
     currency: offer.currency,
     booking_url: offer.bookingUrl,
     raw_offer_payload: offer.rawPayload

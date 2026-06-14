@@ -33,6 +33,10 @@ export type OfferSnapshot = {
   transfers: number | null;
   duration_minutes: number | null;
   total_price: number;
+  outbound_price: number | null;
+  return_price: number | null;
+  passenger_count: number;
+  price_note: string | null;
   currency: string;
   booking_url: string | null;
   observed_at: string;
@@ -60,6 +64,10 @@ export type NormalizedOffer = {
   transfers: number | null;
   durationMinutes: number | null;
   totalPrice: number;
+  outboundPrice: number | null;
+  returnPrice: number | null;
+  passengerCount: number;
+  priceNote: string | null;
   currency: string;
   bookingUrl: string;
   rawPayload: Record<string, unknown>;

@@ -51,21 +51,25 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdmin();
-  const { error } = await supabase.from("search_profiles").insert({
-    title: `${origin} -> ${destination}`,
-    origin,
-    destination,
-    depart_date: departDate,
-    return_date: returnDate,
-    adults: toInteger(form.get("adults"), 1),
-    children: toInteger(form.get("children"), 0),
-    infants: toInteger(form.get("infants"), 0),
-    currency: String(form.get("currency") || "RUB").toUpperCase(),
-    max_price: toNullableInteger(form.get("max_price")),
-    direct_only: form.get("direct_only") === "on",
-    active: intent === "start",
-    check_interval_minutes: toInteger(form.get("check_interval_minutes"), 60)
-  });
+  const { data: createdProfile, error } = await supabase
+    .from("search_profiles")
+    .insert({
+      title: `${origin} -> ${destination}`,
+      origin,
+      destination,
+      depart_date: departDate,
+      return_date: returnDate,
+      adults: toInteger(form.get("adults"), 1),
+      children: toInteger(form.get("children"), 0),
+      infants: toInteger(form.get("infants"), 0),
+      currency: String(form.get("currency") || "RUB").toUpperCase(),
+      max_price: toNullableInteger(form.get("max_price")),
+      direct_only: form.get("direct_only") === "on",
+      active: intent === "start",
+      check_interval_minutes: toInteger(form.get("check_interval_minutes"), 60)
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -83,6 +87,9 @@ export async function POST(request: Request) {
 
   const redirectUrl = new URL("/", request.url);
   redirectUrl.searchParams.set("notice", intent === "start" ? "started" : "draft");
+  if (createdProfile?.id) {
+    redirectUrl.searchParams.set("profile", createdProfile.id);
+  }
 
   if (runResult) {
     redirectUrl.searchParams.set("profiles", String(runResult.checkedProfiles));

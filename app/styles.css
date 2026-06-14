@@ -152,7 +152,8 @@ article p {
 }
 
 .panelHeader p,
-.empty {
+.empty,
+.subhead {
   margin-bottom: 0;
   color: var(--muted);
 }
@@ -328,9 +329,34 @@ button {
   gap: 4px;
 }
 
+.selectedRow {
+  margin: -4px;
+  border: 1px solid #a7d8cf;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f2fbf9;
+}
+
+.profileLink {
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.profileLink:hover {
+  color: var(--accent-strong);
+}
+
 .listRow div span {
   color: var(--muted);
   font-size: 13px;
+}
+
+.mutedNote {
+  max-width: 520px;
+  color: #6d7581;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .linkRow:hover strong {
