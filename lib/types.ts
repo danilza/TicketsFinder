@@ -38,6 +38,16 @@ export type OfferSnapshot = {
   observed_at: string;
 };
 
+export type SearchRun = {
+  id: string;
+  search_profile_id: string;
+  provider: string;
+  status: "success" | "failed" | "partial";
+  started_at: string;
+  finished_at: string | null;
+  error_message: string | null;
+};
+
 export type NormalizedOffer = {
   provider: "travelpayouts";
   providerOfferId: string;

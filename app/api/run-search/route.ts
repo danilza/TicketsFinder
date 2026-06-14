@@ -5,8 +5,14 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    await runFlightSearch();
-    return NextResponse.redirect(new URL("/", request.url), 303);
+    const result = await runFlightSearch();
+    const url = new URL("/", request.url);
+    url.searchParams.set("notice", "checked");
+    url.searchParams.set("profiles", String(result.checkedProfiles));
+    url.searchParams.set("offers", String(result.offersSaved));
+    url.searchParams.set("alerts", String(result.alertsSent));
+    url.hash = "runs";
+    return NextResponse.redirect(url, 303);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },

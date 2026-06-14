@@ -1,5 +1,5 @@
 import { createSupabaseAdmin } from "../lib/supabase-admin";
-import type { OfferSnapshot, SearchProfile } from "../lib/types";
+import type { OfferSnapshot, SearchProfile, SearchRun } from "../lib/types";
 import { SearchForm } from "./components/SearchForm";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ function formatPrice(value: number, currency: string) {
 
 async function loadDashboardData() {
   const supabase = createSupabaseAdmin();
-  const [profiles, offers] = await Promise.all([
+  const [profiles, offers, runs] = await Promise.all([
     supabase
       .from("search_profiles")
       .select("*")
@@ -31,6 +31,11 @@ async function loadDashboardData() {
       .from("offer_snapshots")
       .select("*")
       .order("observed_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("search_runs")
+      .select("*")
+      .order("started_at", { ascending: false })
       .limit(20)
   ]);
 
@@ -42,25 +47,71 @@ async function loadDashboardData() {
     throw new Error(offers.error.message);
   }
 
+  if (runs.error) {
+    throw new Error(runs.error.message);
+  }
+
   return {
     profiles: (profiles.data || []) as SearchProfile[],
-    offers: (offers.data || []) as OfferSnapshot[]
+    offers: (offers.data || []) as OfferSnapshot[],
+    runs: (runs.data || []) as SearchRun[]
   };
 }
 
-export default async function Home() {
+function getNotice(searchParams: SearchParams) {
+  const notice = getParam(searchParams, "notice");
+  const profiles = getParam(searchParams, "profiles");
+  const offers = getParam(searchParams, "offers");
+  const alerts = getParam(searchParams, "alerts");
+
+  if (notice === "draft") {
+    return "Черновик сохранён. Он виден в блоке «Поисковые профили» со статусом paused.";
+  }
+
+  if (notice === "started") {
+    return `Мониторинг запущен. Проверено профилей: ${profiles || "0"}, сохранено офферов: ${offers || "0"}, отправлено алертов: ${alerts || "0"}.`;
+  }
+
+  if (notice === "checked") {
+    return `Проверка активных профилей завершена. Проверено профилей: ${profiles || "0"}, сохранено офферов: ${offers || "0"}, отправлено алертов: ${alerts || "0"}.`;
+  }
+
+  return null;
+}
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function getParam(searchParams: SearchParams, key: string) {
+  const value = searchParams[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getProfileLabel(profileById: Map<string, SearchProfile>, profileId: string) {
+  const profile = profileById.get(profileId);
+  return profile ? `${profile.origin} -> ${profile.destination}` : profileId.slice(0, 8);
+}
+
+export default async function Home({
+  searchParams = {}
+}: {
+  searchParams?: SearchParams;
+}) {
   let profiles: SearchProfile[] = [];
   let offers: OfferSnapshot[] = [];
+  let runs: SearchRun[] = [];
   let loadError: string | null = null;
 
   try {
     const data = await loadDashboardData();
     profiles = data.profiles;
     offers = data.offers;
+    runs = data.runs;
   } catch (error) {
     loadError = error instanceof Error ? error.message : String(error);
   }
   const activeCount = profiles.filter((profile) => profile.active).length;
+  const notice = getNotice(searchParams);
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
 
   return (
     <main className="shell">
@@ -80,6 +131,8 @@ export default async function Home() {
           <span className="statusLabel">активных поисков</span>
         </div>
       </section>
+
+      {notice ? <section className="noticePanel">{notice}</section> : null}
 
       {loadError ? (
         <section className="errorPanel">
@@ -104,7 +157,7 @@ export default async function Home() {
       </section>
 
       <section className="grid">
-        <article>
+        <article id="profiles">
           <div className="articleHeader">
             <h2>Поисковые профили</h2>
             <form action="/api/run-search" method="post">
@@ -124,6 +177,9 @@ export default async function Home() {
                     <span>
                       {profile.depart_date}
                       {profile.return_date ? ` - ${profile.return_date}` : ""}
+                    </span>
+                    <span>
+                      Последняя проверка: {formatDate(profile.last_checked_at)}
                     </span>
                   </div>
                   <span className={profile.active ? "ok" : "missing"}>
@@ -158,6 +214,32 @@ export default async function Home() {
             )}
           </div>
         </article>
+      </section>
+
+      <section className="panel" id="runs">
+        <h2>Последние проверки</h2>
+        <div className="list">
+          {runs.length === 0 ? (
+            <p className="empty">Проверок ещё не было.</p>
+          ) : (
+            runs.map((run) => (
+              <div className="listRow" key={run.id}>
+                <div>
+                  <strong>{getProfileLabel(profileById, run.search_profile_id)}</strong>
+                  <span>
+                    {run.provider} · {run.status} · {formatDate(run.started_at)}
+                  </span>
+                  {run.error_message ? (
+                    <span className="errorText">{run.error_message}</span>
+                  ) : null}
+                </div>
+                <span className={run.status === "failed" ? "missing" : "ok"}>
+                  {run.status}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="panel">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "../../../lib/supabase-admin";
 import { runFlightSearch } from "../../../lib/search-runner";
+import type { SearchRunResult } from "../../../lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -70,13 +71,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  let runResult: SearchRunResult | null = null;
+
   if (intent === "start") {
     try {
-      await runFlightSearch();
+      runResult = await runFlightSearch();
     } catch (runError) {
       console.error(runError);
     }
   }
 
-  return NextResponse.redirect(new URL("/", request.url), 303);
+  const redirectUrl = new URL("/", request.url);
+  redirectUrl.searchParams.set("notice", intent === "start" ? "started" : "draft");
+
+  if (runResult) {
+    redirectUrl.searchParams.set("profiles", String(runResult.checkedProfiles));
+    redirectUrl.searchParams.set("offers", String(runResult.offersSaved));
+    redirectUrl.searchParams.set("alerts", String(runResult.alertsSent));
+  }
+
+  redirectUrl.hash = "profiles";
+  return NextResponse.redirect(redirectUrl, 303);
 }
