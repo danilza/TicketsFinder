@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from "../lib/supabase-admin";
 import type { OfferSnapshot, SearchProfile } from "../lib/types";
+import { SearchForm } from "./components/SearchForm";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ export default async function Home() {
   } catch (error) {
     loadError = error instanceof Error ? error.message : String(error);
   }
+  const activeCount = profiles.filter((profile) => profile.active).length;
 
   return (
     <main className="shell">
@@ -73,7 +75,7 @@ export default async function Home() {
         </div>
         <div className="statusPanel">
           <span className="statusValue">
-            {profiles.length}
+            {activeCount}
           </span>
           <span className="statusLabel">активных поисков</span>
         </div>
@@ -94,70 +96,21 @@ export default async function Home() {
         <div className="panelHeader">
           <div>
             <h2>Новый поиск</h2>
-            <p>Укажи IATA-коды аэропортов или городов, даты и порог цены.</p>
+            <p>Начни вводить город или аэропорт, затем выбери вариант из списка.</p>
           </div>
-          <form action="/api/run-search" method="post">
-            <button type="submit">Проверить сейчас</button>
-          </form>
         </div>
 
-        <form className="searchForm" action="/api/search-profiles" method="post">
-          <label>
-            <span>Откуда</span>
-            <input name="origin" placeholder="MOW" maxLength={3} required />
-          </label>
-          <label>
-            <span>Куда</span>
-            <input name="destination" placeholder="IST" maxLength={3} required />
-          </label>
-          <label>
-            <span>Туда</span>
-            <input name="depart_date" type="date" required />
-          </label>
-          <label>
-            <span>Обратно</span>
-            <input name="return_date" type="date" />
-          </label>
-          <label>
-            <span>Взрослые</span>
-            <input name="adults" type="number" min={1} defaultValue={1} />
-          </label>
-          <label>
-            <span>Дети</span>
-            <input name="children" type="number" min={0} defaultValue={0} />
-          </label>
-          <label>
-            <span>Младенцы</span>
-            <input name="infants" type="number" min={0} defaultValue={0} />
-          </label>
-          <label>
-            <span>Валюта</span>
-            <input name="currency" defaultValue="RUB" maxLength={3} />
-          </label>
-          <label>
-            <span>Порог цены</span>
-            <input name="max_price" type="number" min={1} placeholder="45000" />
-          </label>
-          <label>
-            <span>Интервал, мин</span>
-            <input
-              name="check_interval_minutes"
-              type="number"
-              min={15}
-              defaultValue={60}
-            />
-          </label>
-          <label className="checkboxLabel">
-            <input name="direct_only" type="checkbox" />
-            <span>Только прямые</span>
-          </label>
-          <button type="submit">Сохранить поиск</button>
-        </form>
+        <SearchForm />
       </section>
 
       <section className="grid">
         <article>
-          <h2>Поисковые профили</h2>
+          <div className="articleHeader">
+            <h2>Поисковые профили</h2>
+            <form action="/api/run-search" method="post">
+              <button type="submit">Проверить активные</button>
+            </form>
+          </div>
           <div className="list">
             {profiles.length === 0 ? (
               <p className="empty">Пока нет сохранённых поисков.</p>

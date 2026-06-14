@@ -179,12 +179,99 @@ button {
   cursor: pointer;
 }
 
+.secondaryButton {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+}
+
+.formActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  align-self: end;
+}
+
 .checkboxLabel {
   display: flex;
   gap: 8px;
   align-items: center;
   align-self: end;
   min-height: 42px;
+}
+
+.autocomplete {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgb(24 32 45 / 14%);
+}
+
+.suggestion {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  background: #ffffff;
+  color: var(--text);
+  text-align: left;
+}
+
+.suggestion:last-child {
+  border-bottom: 0;
+}
+
+.suggestion:hover {
+  background: #f2fbf9;
+}
+
+.suggestion span {
+  display: grid;
+  gap: 3px;
+}
+
+.suggestion small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.suggestion code {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.articleHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.articleHeader h2 {
+  margin-bottom: 0;
+}
+
+.articleHeader button {
+  min-height: 36px;
+  white-space: nowrap;
 }
 
 .checkboxLabel input {
@@ -277,12 +364,14 @@ button {
   }
 
   .panelHeader,
+  .articleHeader,
   .listRow {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .panelHeader form,
+  .articleHeader form,
   button {
     width: 100%;
   }

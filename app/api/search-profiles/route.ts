@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "../../../lib/supabase-admin";
+import { runFlightSearch } from "../../../lib/search-runner";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   const destination = cleanIata(form.get("destination"));
   const departDate = String(form.get("depart_date") || "");
   const returnDate = String(form.get("return_date") || "") || null;
+  const intent = String(form.get("intent") || "start");
 
   if (origin.length !== 3 || destination.length !== 3 || !departDate) {
     return NextResponse.json(
@@ -60,11 +62,20 @@ export async function POST(request: Request) {
     currency: String(form.get("currency") || "RUB").toUpperCase(),
     max_price: toNullableInteger(form.get("max_price")),
     direct_only: form.get("direct_only") === "on",
+    active: intent === "start",
     check_interval_minutes: toInteger(form.get("check_interval_minutes"), 60)
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (intent === "start") {
+    try {
+      await runFlightSearch();
+    } catch (runError) {
+      console.error(runError);
+    }
   }
 
   return NextResponse.redirect(new URL("/", request.url), 303);
