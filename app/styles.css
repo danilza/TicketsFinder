@@ -72,7 +72,8 @@ h2 {
 
 .statusPanel,
 article,
-.panel {
+.panel,
+.errorPanel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -113,6 +114,18 @@ article p {
 
 .panel {
   padding: 22px;
+}
+
+.errorPanel {
+  margin-bottom: 18px;
+  border-color: #f2b8b5;
+  background: #fff7f7;
+  padding: 22px;
+}
+
+.errorPanel p {
+  color: #8a1f1b;
+  line-height: 1.5;
 }
 
 .panelHeader {

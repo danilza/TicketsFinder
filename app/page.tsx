@@ -48,7 +48,17 @@ async function loadDashboardData() {
 }
 
 export default async function Home() {
-  const { profiles, offers } = await loadDashboardData();
+  let profiles: SearchProfile[] = [];
+  let offers: OfferSnapshot[] = [];
+  let loadError: string | null = null;
+
+  try {
+    const data = await loadDashboardData();
+    profiles = data.profiles;
+    offers = data.offers;
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : String(error);
+  }
 
   return (
     <main className="shell">
@@ -68,6 +78,17 @@ export default async function Home() {
           <span className="statusLabel">активных поисков</span>
         </div>
       </section>
+
+      {loadError ? (
+        <section className="errorPanel">
+          <h2>Ошибка подключения</h2>
+          <p>{loadError}</p>
+          <p>
+            Проверь переменные окружения Vercel и что Supabase migration уже
+            выполнена.
+          </p>
+        </section>
+      ) : null}
 
       <section className="panel">
         <div className="panelHeader">
