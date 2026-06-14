@@ -1,8 +1,12 @@
-export function getRequiredEnv(name: string) {
-  const value = process.env[name];
+export function getRequiredEnv(name: string, fallbackNames: string[] = []) {
+  const value = [name, ...fallbackNames]
+    .map((envName) => process.env[envName])
+    .find(Boolean);
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(
+      `Missing required environment variable: ${[name, ...fallbackNames].join(" or ")}`
+    );
   }
 
   return value;
