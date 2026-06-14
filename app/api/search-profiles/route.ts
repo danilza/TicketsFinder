@@ -90,6 +90,6 @@ export async function POST(request: Request) {
     redirectUrl.searchParams.set("alerts", String(runResult.alertsSent));
   }
 
-  redirectUrl.hash = "profiles";
+  redirectUrl.hash = runResult && runResult.offersSaved > 0 ? "offers" : "profiles";
   return NextResponse.redirect(redirectUrl, 303);
 }

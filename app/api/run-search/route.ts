@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     url.searchParams.set("profiles", String(result.checkedProfiles));
     url.searchParams.set("offers", String(result.offersSaved));
     url.searchParams.set("alerts", String(result.alertsSent));
-    url.hash = "runs";
+    url.hash = result.offersSaved > 0 ? "offers" : "runs";
     return NextResponse.redirect(url, 303);
   } catch (error) {
     return NextResponse.json(

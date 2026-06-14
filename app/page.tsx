@@ -1,9 +1,11 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseAdmin } from "../lib/supabase-admin";
 import { getTravelpayoutsSearchUrl } from "../lib/travelpayouts";
 import type { OfferSnapshot, SearchProfile, SearchRun } from "../lib/types";
 import { SearchForm } from "./components/SearchForm";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -22,6 +24,8 @@ function formatPrice(value: number, currency: string) {
 }
 
 async function loadDashboardData() {
+  noStore();
+
   const supabase = createSupabaseAdmin();
   const [profiles, offers, runs] = await Promise.all([
     supabase
@@ -195,8 +199,11 @@ export default async function Home({
           </div>
         </article>
 
-        <article>
-          <h2>Последние цены</h2>
+        <article id="offers">
+          <div className="articleHeader">
+            <h2>Последние цены</h2>
+            <span className="countBadge">{offers.length}</span>
+          </div>
           <div className="list">
             {offers.length === 0 ? (
               <p className="empty">После первой проверки здесь появятся офферы.</p>
@@ -221,7 +228,10 @@ export default async function Home({
       </section>
 
       <section className="panel" id="runs">
-        <h2>Последние проверки</h2>
+        <div className="articleHeader">
+          <h2>Последние проверки</h2>
+          <span className="countBadge">{runs.length}</span>
+        </div>
         <div className="list">
           {runs.length === 0 ? (
             <p className="empty">Проверок ещё не было.</p>

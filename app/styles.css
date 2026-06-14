@@ -289,6 +289,15 @@ button {
   white-space: nowrap;
 }
 
+.countBadge {
+  border-radius: 999px;
+  background: #e8f2ef;
+  padding: 5px 10px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .checkboxLabel input {
   width: 18px;
   min-height: 18px;
