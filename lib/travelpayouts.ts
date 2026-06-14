@@ -76,6 +76,10 @@ function getSearchUrl(profile: SearchProfile) {
   return `https://www.aviasales.com/search?${params.toString()}`;
 }
 
+export function getTravelpayoutsSearchUrl(profile: SearchProfile) {
+  return getSearchUrl(profile);
+}
+
 function fingerprint(profile: SearchProfile, item: TravelpayoutsPrice) {
   const departDate = toDateOnly(item.depart_date || item.departure_at) || profile.depart_date;
   const returnDate = toDateOnly(item.return_date || item.return_at) || profile.return_date || "";
@@ -92,18 +96,26 @@ function fingerprint(profile: SearchProfile, item: TravelpayoutsPrice) {
   ].join(":");
 }
 
-async function fetchTravelpayoutsPrices(profile: SearchProfile, endpoint: string) {
+async function fetchTravelpayoutsPricesForDate(
+  profile: SearchProfile,
+  endpoint: string,
+  departDate: string
+) {
   const token = getRequiredEnv("TRAVELPAYOUTS_TOKEN");
   const url = new URL(endpoint);
 
   url.searchParams.set("origin", normalizeIata(profile.origin));
   url.searchParams.set("destination", normalizeIata(profile.destination));
-  url.searchParams.set("depart_date", profile.depart_date);
+  url.searchParams.set("depart_date", departDate);
   url.searchParams.set("currency", profile.currency);
   url.searchParams.set("token", token);
 
   if (profile.return_date) {
     url.searchParams.set("return_date", profile.return_date);
+  }
+
+  if (endpoint.endsWith("/calendar")) {
+    url.searchParams.set("calendar_type", "departure_date");
   }
 
   const response = await fetch(url, {
@@ -179,10 +191,26 @@ function uniqueOffers(offers: NormalizedOffer[]) {
   });
 }
 
+function filterExactProfileDate(profile: SearchProfile, offers: NormalizedOffer[]) {
+  return offers.filter((offer) => {
+    if (offer.departDate !== profile.depart_date) {
+      return false;
+    }
+
+    if (profile.return_date && offer.returnDate !== profile.return_date) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 export async function searchTravelpayouts(profile: SearchProfile) {
-  const cheapPayload = await fetchTravelpayoutsPrices(
+  const departureMonth = profile.depart_date.slice(0, 7);
+  const cheapPayload = await fetchTravelpayoutsPricesForDate(
     profile,
-    "https://api.travelpayouts.com/v1/prices/cheap"
+    "https://api.travelpayouts.com/v1/prices/cheap",
+    profile.depart_date
   );
   const cheapOffers = normalizePayload(profile, cheapPayload);
 
@@ -190,10 +218,25 @@ export async function searchTravelpayouts(profile: SearchProfile) {
     return cheapOffers;
   }
 
-  const calendarPayload = await fetchTravelpayoutsPrices(
+  const cheapMonthPayload = await fetchTravelpayoutsPricesForDate(
     profile,
-    "https://api.travelpayouts.com/v1/prices/calendar"
+    "https://api.travelpayouts.com/v1/prices/cheap",
+    departureMonth
+  );
+  const cheapMonthOffers = filterExactProfileDate(
+    profile,
+    normalizePayload(profile, cheapMonthPayload)
   );
 
-  return uniqueOffers(normalizePayload(profile, calendarPayload));
+  if (cheapMonthOffers.length > 0) {
+    return uniqueOffers(cheapMonthOffers);
+  }
+
+  const calendarPayload = await fetchTravelpayoutsPricesForDate(
+    profile,
+    "https://api.travelpayouts.com/v1/prices/calendar",
+    departureMonth
+  );
+
+  return uniqueOffers(filterExactProfileDate(profile, normalizePayload(profile, calendarPayload)));
 }

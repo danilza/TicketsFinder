@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "../lib/supabase-admin";
+import { getTravelpayoutsSearchUrl } from "../lib/travelpayouts";
 import type { OfferSnapshot, SearchProfile, SearchRun } from "../lib/types";
 import { SearchForm } from "./components/SearchForm";
 
@@ -181,6 +182,9 @@ export default async function Home({
                     <span>
                       Последняя проверка: {formatDate(profile.last_checked_at)}
                     </span>
+                    <a className="inlineLink" href={getTravelpayoutsSearchUrl(profile)}>
+                      Открыть live-поиск
+                    </a>
                   </div>
                   <span className={profile.active ? "ok" : "missing"}>
                     {profile.active ? "active" : "paused"}
