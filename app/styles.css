@@ -72,7 +72,7 @@ h2 {
 
 .statusPanel,
 article,
-.envCard {
+.panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -111,32 +111,121 @@ article p {
   line-height: 1.55;
 }
 
-.envCard {
+.panel {
   padding: 22px;
 }
 
-.envList {
+.panelHeader {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.panelHeader p,
+.empty {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.searchForm {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 11px;
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  align-self: end;
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--accent);
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  align-self: end;
+  min-height: 42px;
+}
+
+.checkboxLabel input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.list {
   display: grid;
   gap: 10px;
 }
 
-.envRow {
+.listRow {
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: space-between;
   min-height: 44px;
   border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
 }
 
-.envRow:last-child {
+.listRow:last-child {
   border-bottom: 0;
 }
 
-code {
-  overflow-wrap: anywhere;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 14px;
+.listRow div {
+  display: grid;
+  gap: 4px;
+}
+
+.listRow div span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.linkRow:hover strong {
+  color: var(--accent-strong);
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.steps span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .ok,
@@ -165,7 +254,8 @@ code {
   }
 
   .hero,
-  .grid {
+  .grid,
+  .searchForm {
     grid-template-columns: 1fr;
   }
 
@@ -173,10 +263,14 @@ code {
     font-size: 38px;
   }
 
-  .envRow {
+  .panelHeader,
+  .listRow {
     align-items: flex-start;
     flex-direction: column;
-    justify-content: center;
-    padding: 10px 0;
+  }
+
+  .panelHeader form,
+  button {
+    width: 100%;
   }
 }
