@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const result = await runFlightSearch();
+    const result = await runFlightSearch({ force: true });
     const url = new URL("/", request.url);
     url.searchParams.set("notice", "checked");
     url.searchParams.set("profiles", String(result.checkedProfiles));

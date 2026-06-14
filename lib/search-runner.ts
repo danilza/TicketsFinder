@@ -3,7 +3,11 @@ import { buildAlertMessage, sendTelegramMessage } from "./telegram";
 import { searchTravelpayouts } from "./travelpayouts";
 import type { NormalizedOffer, SearchProfile, SearchRunResult } from "./types";
 
-function shouldCheck(profile: SearchProfile) {
+function shouldCheck(profile: SearchProfile, force = false) {
+  if (force) {
+    return true;
+  }
+
   if (!profile.last_checked_at) {
     return true;
   }
@@ -18,7 +22,7 @@ function shouldAlert(profile: SearchProfile, offer: NormalizedOffer) {
   return !profile.max_price || offer.totalPrice <= profile.max_price;
 }
 
-async function loadDueProfiles() {
+async function loadDueProfiles(force = false) {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("search_profiles")
@@ -31,7 +35,9 @@ async function loadDueProfiles() {
     throw new Error(error.message);
   }
 
-  return (data || []).filter(shouldCheck) as SearchProfile[];
+  return ((data || []) as SearchProfile[]).filter((profile) =>
+    shouldCheck(profile, force)
+  );
 }
 
 async function saveRunStart(profileId: string) {
@@ -144,7 +150,9 @@ async function markProfileChecked(profileId: string) {
     .eq("id", profileId);
 }
 
-export async function runFlightSearch(): Promise<SearchRunResult> {
+export async function runFlightSearch(
+  options: { force?: boolean } = {}
+): Promise<SearchRunResult> {
   const result: SearchRunResult = {
     checkedProfiles: 0,
     offersSaved: 0,
@@ -152,7 +160,7 @@ export async function runFlightSearch(): Promise<SearchRunResult> {
     errors: []
   };
 
-  const profiles = await loadDueProfiles();
+  const profiles = await loadDueProfiles(Boolean(options.force));
 
   for (const profile of profiles) {
     result.checkedProfiles += 1;

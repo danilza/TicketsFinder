@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   if (intent === "start") {
     try {
-      runResult = await runFlightSearch();
+      runResult = await runFlightSearch({ force: true });
     } catch (runError) {
       console.error(runError);
     }

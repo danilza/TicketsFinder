@@ -8,10 +8,13 @@ type TravelpayoutsPrice = {
   destination?: string;
   depart_date?: string;
   return_date?: string;
+  departure_at?: string;
+  return_at?: string;
   airline?: string;
   flight_number?: string;
   transfers?: number;
   duration?: number;
+  expires_at?: string;
 };
 
 type TravelpayoutsResponse = {
@@ -26,6 +29,14 @@ function normalizeIata(value: string) {
 
 function getPrice(item: TravelpayoutsPrice) {
   return item.value ?? item.price ?? null;
+}
+
+function toDateOnly(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value.slice(0, 10);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,21 +77,24 @@ function getSearchUrl(profile: SearchProfile) {
 }
 
 function fingerprint(profile: SearchProfile, item: TravelpayoutsPrice) {
+  const departDate = toDateOnly(item.depart_date || item.departure_at) || profile.depart_date;
+  const returnDate = toDateOnly(item.return_date || item.return_at) || profile.return_date || "";
+
   return [
     "travelpayouts",
     normalizeIata(item.origin || profile.origin),
     normalizeIata(item.destination || profile.destination),
-    item.depart_date || profile.depart_date,
-    item.return_date || profile.return_date || "",
+    departDate,
+    returnDate,
     item.airline || "",
     item.flight_number || "",
     item.transfers ?? ""
   ].join(":");
 }
 
-export async function searchTravelpayouts(profile: SearchProfile) {
+async function fetchTravelpayoutsPrices(profile: SearchProfile, endpoint: string) {
   const token = getRequiredEnv("TRAVELPAYOUTS_TOKEN");
-  const url = new URL("https://api.travelpayouts.com/v1/prices/cheap");
+  const url = new URL(endpoint);
 
   url.searchParams.set("origin", normalizeIata(profile.origin));
   url.searchParams.set("destination", normalizeIata(profile.destination));
@@ -103,19 +117,24 @@ export async function searchTravelpayouts(profile: SearchProfile) {
     throw new Error(`Travelpayouts request failed with ${response.status}`);
   }
 
-  const payload = (await response.json()) as TravelpayoutsResponse;
+  return (await response.json()) as TravelpayoutsResponse;
+}
 
+function normalizePayload(profile: SearchProfile, payload: TravelpayoutsResponse) {
   if (payload.success === false) {
     throw new Error(payload.error || "Travelpayouts returned success=false");
   }
 
   const rows = flattenPrices(payload.data);
-
   const bookingUrl = getSearchUrl(profile);
 
   return rows
     .map((item): NormalizedOffer | null => {
       const totalPrice = getPrice(item);
+      const departDate =
+        toDateOnly(item.depart_date || item.departure_at) || profile.depart_date;
+      const returnDate =
+        toDateOnly(item.return_date || item.return_at) || profile.return_date;
 
       if (!totalPrice) {
         return null;
@@ -130,8 +149,8 @@ export async function searchTravelpayouts(profile: SearchProfile) {
         providerOfferId: fingerprint(profile, item),
         origin: normalizeIata(item.origin || profile.origin),
         destination: normalizeIata(item.destination || profile.destination),
-        departDate: item.depart_date || profile.depart_date,
-        returnDate: item.return_date || profile.return_date,
+        departDate,
+        returnDate,
         airline: item.airline || null,
         flightNumber: item.flight_number || null,
         transfers: item.transfers ?? null,
@@ -144,4 +163,37 @@ export async function searchTravelpayouts(profile: SearchProfile) {
     })
     .filter((item): item is NormalizedOffer => Boolean(item))
     .sort((a, b) => a.totalPrice - b.totalPrice);
+}
+
+function uniqueOffers(offers: NormalizedOffer[]) {
+  const seen = new Set<string>();
+  return offers.filter((offer) => {
+    const key = offer.providerOfferId;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function searchTravelpayouts(profile: SearchProfile) {
+  const cheapPayload = await fetchTravelpayoutsPrices(
+    profile,
+    "https://api.travelpayouts.com/v1/prices/cheap"
+  );
+  const cheapOffers = normalizePayload(profile, cheapPayload);
+
+  if (cheapOffers.length > 0) {
+    return cheapOffers;
+  }
+
+  const calendarPayload = await fetchTravelpayoutsPrices(
+    profile,
+    "https://api.travelpayouts.com/v1/prices/calendar"
+  );
+
+  return uniqueOffers(normalizePayload(profile, calendarPayload));
 }
